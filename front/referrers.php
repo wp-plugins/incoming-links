@@ -89,7 +89,8 @@ if(!class_exists('WPMB_Referrers') && class_exists('WPMB_Config') ){
             */
             if(is_user_logged_in() && isset($WPMB_Config->configs->ignore_roles_referer)){
                 global $current_user;
-                $user_role = array_shift($current_user->roles);
+                $roles = $current_user->roles;
+                $user_role = array_shift($roles);
                 if(in_array($user_role,$WPMB_Config->configs->ignore_roles_referer)){
                     //in admin settings we ignore current role for referer ...
                     return false;
@@ -147,8 +148,8 @@ if(!class_exists('WPMB_Referrers') && class_exists('WPMB_Config') ){
             $count = $wpdb->get_var($wpdb->prepare("
                 SELECT COUNT(*) as count
                 FROM " . $wpdb->prefix . "backlinks
-                WHERE referrer = %s
-            ",$referrer));
+                WHERE REPLACE(referrer,'www.','') = %s
+            ",str_replace('www.','',$referrer)));
             if($count){
                 return true;
             }else{
@@ -161,8 +162,8 @@ if(!class_exists('WPMB_Referrers') && class_exists('WPMB_Config') ){
             $count = $wpdb->get_var($wpdb->prepare("
                 SELECT COUNT(*)
                 FROM " . $wpdb->prefix . "backlinks_block_domain
-                WHERE referrer = %s
-            ",$referrer));
+                WHERE REPLACE(referrer,'www.','') = %s
+            ",str_replace('www.','',$referrer)));
             if($count){
                 return true;
             }else{
@@ -175,8 +176,8 @@ if(!class_exists('WPMB_Referrers') && class_exists('WPMB_Config') ){
             $count = $wpdb->get_var($wpdb->prepare("
                 SELECT COUNT(*)
                 FROM " . $wpdb->prefix . "backlinks_cron
-                WHERE referrer = %s
-            ",$referrer));
+                WHERE REPLACE(referrer,'www.','') = %s
+            ",str_replace('www.','',$referrer)));
             if($count){
                 return true;
             }else{

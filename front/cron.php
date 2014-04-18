@@ -58,25 +58,51 @@ if(!class_exists('WPMB_Cron') && class_exists('WPMB_Config') ){
             if($referrers){
                 $site_host = str_replace("www.", "", $_SERVER["HTTP_HOST"]);
                 foreach($referrers as $referrer){
-                    $document = phpQuery::newDocumentHTML($this->file_get_contents_curl($referrer->referrer));//get content
-                    $follow = 0;
-                    $find = false;
-                    foreach($document->find('a') as $tag){ //go by each link
-                        $href_data = @parse_url(pq($tag)->attr('href'));
-                        if(strpos($href_data['host'],$site_host)!==FALSE){ //find the same host
-                            $find = true;
-                            $anchor_text = pq($tag)->text();
-                            $rel = pq($tag)->attr('rel');
-                            if($rel && strpos($rel,'nofollow')!==FALSE){
-                                $follow = 0;
-                            }else{
-                                $follow = 1;
-                            }
-                            $this->move_to_main_table($referrer,$follow,$anchor_text);
-                            break;
-                        }
-                    }
+                	
+                	$args = array(
+                			'timeout'     => 15,
+                			'redirection' => 0,
+                			'httpversion' => '1.0',
+                			'user-agent'  => 'MonitorBacklinksWP (+http://monitorbacklinks.com/blog/incoming-links/)'
+                	);
+                	$result = wp_remote_get( $referrer->referrer, $args );
+                	if ( is_array($result) AND 200 == $result['response']['code'] ) {
+                		$body = $result['body'];
+                	} else{
+                		$body = '';
+                	}	 
 
+                	$size = strlen($body);
+                	
+					if ((($size*8)/(1024*1024)<2) AND $body){ //Not bigger than 2MB and not empty
+                		try{ 
+	                		$document = phpQuery::newDocumentHTML($body);//parse content
+	                		
+		                    $follow = 0;
+		                    $find = false;
+		                    foreach($document->find('a') as $tag){ //go by each link
+		                        $href_data = @parse_url(pq($tag)->attr('href'));
+		                        if(strpos($href_data['host'],$site_host)!==FALSE){ //find the same host
+		                            $find = true;
+		                            $anchor_text = pq($tag)->text();
+		                            $rel = pq($tag)->attr('rel');
+		                            if($rel && strpos($rel,'nofollow')!==FALSE){
+		                                $follow = 0;
+		                            }else{
+		                                $follow = 1;
+		                            }
+		                            $this->move_to_main_table($referrer,$follow,$anchor_text);
+		                            break;
+		                        }
+		                    }
+	                    	phpQuery::unloadDocuments(); //prevent memory leaking
+                    	} catch (Exception $e){
+                    		$find = false;
+                    	}    	
+                	} else{
+                		$find = false;
+                	}
+                	
                     if($find === false){
                         /*Add referrer to ban list*/
                         $WPMB_Blocks->addBlockedReferrer($referrer->referrer);
@@ -118,23 +144,6 @@ if(!class_exists('WPMB_Cron') && class_exists('WPMB_Config') ){
                 )
             );
 
-        }
-
-
-        private function file_get_contents_curl($url) {
-            $ch = curl_init();
-
-            curl_setopt($ch, CURLOPT_HEADER, 0);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Set curl to return the data instead of printing it to the browser.
-            curl_setopt($ch, CURLOPT_URL, $url);
-           // curl_setopt($ch, CURLOPT_USERAGENT,'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
-            curl_setopt($ch, CURLOPT_USERAGENT,"MBWP");
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-            $data = curl_exec($ch);
-            curl_close($ch);
-
-            return $data;
         }
 
     }
